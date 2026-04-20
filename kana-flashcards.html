@@ -1,0 +1,833 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#f7f7f8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Kana">
+<title>Kana Flashcards</title>
+<link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23ffffff'/><text x='50%' y='54%' text-anchor='middle' font-size='44' font-family='system-ui' fill='%23333'>あ</text></svg>">
+<link id="manifest-link" rel="manifest">
+<link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='32' fill='%23ffffff'/><text x='50%' y='60%' text-anchor='middle' font-size='120' font-family='system-ui' fill='%23222'>あ</text></svg>">
+<style>
+  :root {
+    --bg: #f7f7f8;
+    --card-bg: #ffffff;
+    --text: #1c1c1e;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --hira: #2563eb;   /* blue */
+    --kata: #059669;   /* green */
+    --again: #dc2626;
+    --hard:  #d97706;
+    --good:  #16a34a;
+    --easy:  #2563eb;
+    --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b0b0c;
+      --card-bg: #17181b;
+      --text: #f3f4f6;
+      --muted: #9ca3af;
+      --border: #2a2b2f;
+      --hira: #60a5fa;
+      --kata: #34d399;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 6px 20px rgba(0,0,0,0.25);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+  body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  #app { display: flex; flex-direction: column; min-height: 100vh; min-height: 100svh; max-width: 640px; margin: 0 auto; }
+  header { display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 1px solid var(--border); background: var(--bg); position: sticky; top: 0; z-index: 10; }
+  header .stats { font-size: 13px; color: var(--muted); line-height: 1.3; }
+  header .stats b { color: var(--text); font-weight: 600; }
+  header button.icon { appearance: none; background: transparent; border: 1px solid var(--border);
+    color: var(--text); border-radius: 10px; padding: 8px 10px; font-size: 14px; cursor: pointer; }
+  header button.icon:active { transform: scale(.97); }
+
+  main { flex: 1; display: flex; flex-direction: column; padding: 16px; }
+  .screen { display: none; flex: 1; flex-direction: column; }
+  .screen.active { display: flex; }
+
+  /* Card */
+  .card-area { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: stretch; }
+  .card { background: var(--card-bg); border-radius: 18px; box-shadow: var(--shadow);
+    border: 1px solid var(--border); border-top-width: 3px;
+    min-height: 44vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px; cursor: pointer; user-select: none; position: relative; transition: border-color .15s; }
+  .card.hira { border-top-color: var(--hira); }
+  .card.kata { border-top-color: var(--kata); }
+  .card .kind-tag { position: absolute; top: 12px; left: 16px; font-size: 11px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .card .type-tag { position: absolute; top: 12px; right: 16px; font-size: 11px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--muted); font-weight: 500; }
+  .card .prompt { font-size: clamp(84px, 28vw, 172px); font-weight: 400; letter-spacing: .02em;
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif; line-height: 1; }
+  .card .prompt.romaji { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: clamp(56px, 18vw, 120px); font-weight: 500; }
+  .card .answer { font-size: clamp(32px, 9vw, 56px); color: var(--muted); margin-top: 18px; min-height: 1.1em; }
+  .card .answer.kana { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+    font-size: clamp(64px, 20vw, 120px); color: var(--text); }
+  .card .hint { position: absolute; bottom: 14px; font-size: 12px; color: var(--muted); letter-spacing: .02em; }
+
+  /* Grade buttons */
+  .grade-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
+  .grade-row button { appearance: none; border: 1px solid var(--border); background: var(--card-bg);
+    color: var(--text); padding: 16px 4px; border-radius: 14px; font-size: 15px; font-weight: 600;
+    cursor: pointer; transition: transform .05s; min-height: 56px; }
+  .grade-row button .ivl { display: block; font-size: 11px; font-weight: 400; color: var(--muted); margin-top: 3px; }
+  .grade-row button:active { transform: scale(.97); }
+  .grade-row button.again { border-top: 3px solid var(--again); }
+  .grade-row button.hard  { border-top: 3px solid var(--hard); }
+  .grade-row button.good  { border-top: 3px solid var(--good); }
+  .grade-row button.easy  { border-top: 3px solid var(--easy); }
+
+  .grade-row.hidden { visibility: hidden; pointer-events: none; }
+
+  /* Empty / done state */
+  .done-state { text-align: center; margin: auto; padding: 40px 20px; color: var(--muted); }
+  .done-state h2 { color: var(--text); margin-bottom: 6px; font-weight: 600; }
+  .done-state button { margin-top: 16px; padding: 12px 20px; border-radius: 12px; border: 1px solid var(--border);
+    background: var(--card-bg); color: var(--text); font-size: 15px; cursor: pointer; }
+
+  /* Settings screen */
+  .settings-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px;
+    padding: 16px; margin-bottom: 14px; }
+  .settings-card h3 { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
+  .settings-card p  { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+  .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0; }
+  .settings-row label { font-size: 14px; }
+  .settings-row input[type=number] { width: 80px; padding: 8px 10px; font-size: 15px;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg); color: var(--text); }
+  .settings-row input[type=checkbox] { width: 20px; height: 20px; }
+  .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btn-row button, .btn-row label.file-btn {
+    appearance: none; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border);
+    background: var(--card-bg); color: var(--text); font-size: 14px; cursor: pointer; font-weight: 500;
+  }
+  .btn-row button.danger { color: var(--again); border-color: var(--again); background: transparent; }
+  .btn-row button:active, .btn-row label.file-btn:active { transform: scale(.98); }
+  .settings-card textarea { width: 100%; min-height: 100px; padding: 10px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--card-bg); color: var(--text); font-family: ui-monospace, monospace;
+    font-size: 12px; resize: vertical; }
+  .back-btn { background: transparent; border: none; color: var(--text); font-size: 15px; cursor: pointer; padding: 0; }
+  .toast { position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%); background: rgba(0,0,0,.8);
+    color: white; padding: 10px 16px; border-radius: 10px; font-size: 13px; z-index: 50; opacity: 0; pointer-events: none;
+    transition: opacity .2s; max-width: 90vw; text-align: center; }
+  .toast.show { opacity: 1; }
+  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .dot { width: 10px; height: 3px; border-radius: 2px; }
+  .legend .dot.hira { background: var(--hira); }
+  .legend .dot.kata { background: var(--kata); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="stats">
+      <div><b>Due today:</b> <span id="stat-due">0</span> &nbsp;•&nbsp; <b>New today:</b> <span id="stat-new">0</span> &nbsp;•&nbsp; <b>Retention:</b> <span id="stat-ret">—</span></div>
+      <div class="legend"><span><span class="dot hira"></span>hiragana</span><span><span class="dot kata"></span>katakana</span></div>
+    </div>
+    <button class="icon" id="btn-settings" aria-label="Settings">⚙︎</button>
+  </header>
+  <main>
+    <section id="screen-study" class="screen active">
+      <div class="card-area">
+        <div id="card" class="card" role="button" aria-label="Flashcard" tabindex="0">
+          <span class="kind-tag" id="card-kind">HIRAGANA</span>
+          <span class="type-tag" id="card-type">recognize</span>
+          <div class="prompt" id="card-prompt">あ</div>
+          <div class="answer" id="card-answer"></div>
+          <div class="hint" id="card-hint">Tap to reveal</div>
+        </div>
+        <div class="grade-row hidden" id="grade-row">
+          <button class="again" data-grade="1">Again<span class="ivl" id="ivl-1">&lt;1d</span></button>
+          <button class="hard"  data-grade="2">Hard<span class="ivl"  id="ivl-2">&lt;1d</span></button>
+          <button class="good"  data-grade="3">Good<span class="ivl"  id="ivl-3">&lt;1d</span></button>
+          <button class="easy"  data-grade="4">Easy<span class="ivl"  id="ivl-4">&lt;1d</span></button>
+        </div>
+      </div>
+      <div class="done-state" id="done-state" style="display:none">
+        <h2 id="done-title">All caught up</h2>
+        <p id="done-msg">No cards due right now. Come back later, or introduce a new card below.</p>
+        <button id="btn-introduce">Introduce a new card</button>
+      </div>
+    </section>
+
+    <section id="screen-settings" class="screen">
+      <div class="settings-card">
+        <h3>Session</h3>
+        <div class="settings-row">
+          <label for="setting-newcap">New cards per day</label>
+          <input id="setting-newcap" type="number" min="0" max="50" step="1">
+        </div>
+        <div class="settings-row">
+          <label for="setting-showivl">Show interval estimates on grade buttons</label>
+          <input id="setting-showivl" type="checkbox">
+        </div>
+        <p style="margin-top:8px">Target retention: 90% (FSRS-5). Katakana introduces after you clear the first 15 hiragana. Production cards (romaji → kana) unlock per-character once recognition stability reaches ~7 days.</p>
+      </div>
+
+      <div class="settings-card">
+        <h3>Backup</h3>
+        <p>Progress lives in this browser. Export to save a backup; import to restore on another device.</p>
+        <div class="btn-row">
+          <button id="btn-export">Export JSON</button>
+          <label class="file-btn" for="import-file">Import JSON<input id="import-file" type="file" accept="application/json" style="display:none"></label>
+          <button id="btn-copy">Copy JSON to clipboard</button>
+        </div>
+        <textarea id="export-area" readonly style="margin-top:10px; display:none"></textarea>
+      </div>
+
+      <div class="settings-card">
+        <h3>Progress</h3>
+        <p id="progress-summary">—</p>
+      </div>
+
+      <div class="settings-card">
+        <h3>Reset</h3>
+        <p>Wipe all progress and start over. Cannot be undone.</p>
+        <div class="btn-row">
+          <button class="danger" id="btn-reset">Reset all progress</button>
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top:4px">
+        <button class="back-btn" id="btn-back">← Back to study</button>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ */
+/*  FSRS-5 scheduler                                                  */
+/* ------------------------------------------------------------------ */
+const FSRS_W = [
+  0.40255, 1.18385, 3.173, 15.69105, 7.1949, 0.5345, 1.4604, 0.0046,
+  1.54575, 0.1192, 1.01925, 1.9395, 0.11, 0.29605, 2.2698, 0.2315,
+  2.9898, 0.51655, 0.6621,
+];
+const FSRS_DECAY = -0.5;
+const FSRS_FACTOR = Math.pow(0.9, 1 / FSRS_DECAY) - 1; // 19/81
+const DAY_MS = 86400000;
+const R_TARGET = 0.9;
+
+const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+const retrievability = (d, S) => Math.pow(1 + FSRS_FACTOR * d / S, FSRS_DECAY);
+const nextIntervalDays = (S) => clamp(Math.round((S / FSRS_FACTOR) * (Math.pow(R_TARGET, 1 / FSRS_DECAY) - 1)), 1, 36500);
+
+const initDifficulty = (G) => clamp(FSRS_W[4] - Math.exp(FSRS_W[5] * (G - 1)) + 1, 1, 10);
+const initStability  = (G) => Math.max(FSRS_W[G - 1], 0.1);
+function nextDifficulty(D, G) {
+  const linearD = D - FSRS_W[6] * (G - 3);
+  const rev = FSRS_W[7] * initDifficulty(4) + (1 - FSRS_W[7]) * linearD;
+  return clamp(rev, 1, 10);
+}
+function nextRecallStability(S, D, R, G) {
+  const hardPen = G === 2 ? FSRS_W[15] : 1;
+  const easyBon = G === 4 ? FSRS_W[16] : 1;
+  const inc = 1 + Math.exp(FSRS_W[8]) * (11 - D) * Math.pow(S, -FSRS_W[9])
+    * (Math.exp((1 - R) * FSRS_W[10]) - 1) * hardPen * easyBon;
+  return S * Math.max(inc, 1.0);
+}
+function nextForgetStability(S, D, R) {
+  const sf = FSRS_W[11] * Math.pow(D, -FSRS_W[12]) * (Math.pow(S + 1, FSRS_W[13]) - 1) * Math.exp((1 - R) * FSRS_W[14]);
+  return clamp(sf, 0.1, S);
+}
+const nextShortTermStability = (S, G) => Math.max(0.1, S * Math.exp(FSRS_W[17] * (G - 3 + FSRS_W[18])));
+
+function scheduleReview(card, G, now) {
+  const isNew = !card.lastReview || (card.reps || 0) === 0;
+  let S, D, R, intervalDays;
+  if (isNew) {
+    S = initStability(G); D = initDifficulty(G); R = 1;
+    intervalDays = G === 1 ? 0 : nextIntervalDays(S);
+  } else {
+    const elapsedDays = Math.max(0, (now - card.lastReview) / DAY_MS);
+    R = retrievability(elapsedDays, card.stability);
+    if (elapsedDays < 1) {
+      S = nextShortTermStability(card.stability, G);
+      D = nextDifficulty(card.difficulty, G);
+      intervalDays = G === 1 ? 0 : nextIntervalDays(S);
+    } else if (G === 1) {
+      S = nextForgetStability(card.stability, card.difficulty, R);
+      D = nextDifficulty(card.difficulty, G);
+      intervalDays = 0;
+    } else {
+      S = nextRecallStability(card.stability, card.difficulty, R, G);
+      D = nextDifficulty(card.difficulty, G);
+      intervalDays = nextIntervalDays(S);
+    }
+  }
+  const due = intervalDays === 0 ? now + 10 * 60 * 1000 : now + intervalDays * DAY_MS;
+  return {
+    ...card,
+    stability: S, difficulty: D, due, lastReview: now,
+    reps: (card.reps || 0) + 1,
+    lapses: (card.lapses || 0) + (G === 1 ? 1 : 0),
+    state: G === 1 ? 'relearning' : (isNew ? 'learning' : 'review'),
+  };
+}
+
+// Preview next interval in days (for grade-button labels) without mutating.
+function previewInterval(card, G, now) {
+  const res = scheduleReview(card, G, now);
+  const days = (res.due - now) / DAY_MS;
+  if (days < 1/24) return '<10m';
+  if (days < 1) return Math.round(days * 24) + 'h';
+  if (days < 30) return Math.round(days) + 'd';
+  if (days < 365) return Math.round(days / 30) + 'mo';
+  return Math.round(days / 365) + 'y';
+}
+
+/* ------------------------------------------------------------------ */
+/*  Kana deck                                                         */
+/* ------------------------------------------------------------------ */
+// gojūon rows with 5-char chunks. "ya" and "wa" rows have gaps; "n" is its own row.
+const HIRAGANA_ROWS = [
+  { row:'a',  chars:[['あ','a'],['い','i'],['う','u'],['え','e'],['お','o']] },
+  { row:'ka', chars:[['か','ka'],['き','ki'],['く','ku'],['け','ke'],['こ','ko']] },
+  { row:'sa', chars:[['さ','sa'],['し','shi'],['す','su'],['せ','se'],['そ','so']] },
+  { row:'ta', chars:[['た','ta'],['ち','chi'],['つ','tsu'],['て','te'],['と','to']] },
+  { row:'na', chars:[['な','na'],['に','ni'],['ぬ','nu'],['ね','ne'],['の','no']] },
+  { row:'ha', chars:[['は','ha'],['ひ','hi'],['ふ','fu'],['へ','he'],['ほ','ho']] },
+  { row:'ma', chars:[['ま','ma'],['み','mi'],['む','mu'],['め','me'],['も','mo']] },
+  { row:'ya', chars:[['や','ya'],['ゆ','yu'],['よ','yo']] },
+  { row:'ra', chars:[['ら','ra'],['り','ri'],['る','ru'],['れ','re'],['ろ','ro']] },
+  { row:'wa', chars:[['わ','wa'],['を','wo']] },
+  { row:'n',  chars:[['ん','n']] },
+];
+const KATAKANA_ROWS = [
+  { row:'a',  chars:[['ア','a'],['イ','i'],['ウ','u'],['エ','e'],['オ','o']] },
+  { row:'ka', chars:[['カ','ka'],['キ','ki'],['ク','ku'],['ケ','ke'],['コ','ko']] },
+  { row:'sa', chars:[['サ','sa'],['シ','shi'],['ス','su'],['セ','se'],['ソ','so']] },
+  { row:'ta', chars:[['タ','ta'],['チ','chi'],['ツ','tsu'],['テ','te'],['ト','to']] },
+  { row:'na', chars:[['ナ','na'],['ニ','ni'],['ヌ','nu'],['ネ','ne'],['ノ','no']] },
+  { row:'ha', chars:[['ハ','ha'],['ヒ','hi'],['フ','fu'],['ヘ','he'],['ホ','ho']] },
+  { row:'ma', chars:[['マ','ma'],['ミ','mi'],['ム','mu'],['メ','me'],['モ','mo']] },
+  { row:'ya', chars:[['ヤ','ya'],['ユ','yu'],['ヨ','yo']] },
+  { row:'ra', chars:[['ラ','ra'],['リ','ri'],['ル','ru'],['レ','re'],['ロ','ro']] },
+  { row:'wa', chars:[['ワ','wa'],['ヲ','wo']] },
+  { row:'n',  chars:[['ン','n']] },
+];
+
+// Build the master ordered deck.
+// order = a-row hiragana, ka-row hiragana, ..., then katakana in the same order.
+// Each kana yields two cards: recognition (R) + production (P).
+const KANA = [];       // array of {id, kind:'hira'|'kata', row, char, romaji}
+const CARDS = [];      // array of {id, kanaId, type:'R'|'P', orderIdx}
+function buildDeck() {
+  let idx = 0;
+  const pushKind = (rows, kind) => {
+    for (const {row, chars} of rows) {
+      for (const [ch, rom] of chars) {
+        const kanaId = `${kind}:${ch}`;
+        KANA.push({ id: kanaId, kind, row, char: ch, romaji: rom, orderIdx: idx });
+        idx++;
+      }
+    }
+  };
+  pushKind(HIRAGANA_ROWS, 'hira');
+  pushKind(KATAKANA_ROWS, 'kata');
+  // Cards: for introduction-order purposes, each kana's R comes before anyone's P.
+  // We produce an "introduction order" based on R index only; P is gated by stability.
+  for (const k of KANA) {
+    CARDS.push({ id: `${k.id}:R`, kanaId: k.id, type: 'R', orderIdx: k.orderIdx, kind: k.kind });
+  }
+  for (const k of KANA) {
+    CARDS.push({ id: `${k.id}:P`, kanaId: k.id, type: 'P', orderIdx: k.orderIdx + 10000, kind: k.kind });
+  }
+}
+buildDeck();
+
+/* ------------------------------------------------------------------ */
+/*  Persistence                                                       */
+/* ------------------------------------------------------------------ */
+const STORAGE_KEY = 'kana-flashcards:v1';
+const STATE_VERSION = 1;
+const DEFAULT_SETTINGS = {
+  newPerDay: 5,
+  showIntervals: true,
+  hiraBeforeKataCount: 15, // katakana unlock threshold (# of hiragana R cards introduced)
+  productionUnlockStability: 7.0, // days
+};
+
+function emptyState() {
+  return {
+    version: STATE_VERSION,
+    settings: { ...DEFAULT_SETTINGS },
+    cards: {},           // id -> {stability, difficulty, due, lastReview, reps, lapses, state}
+    daily: {},           // "YYYY-MM-DD" -> { introduced: number, reviewed: number, again: number }
+    history: [],         // {cardId, grade, t, success} — kept small (last ~500)
+    deckMeta: { createdAt: Date.now() },
+  };
+}
+
+let STATE = loadState();
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return emptyState();
+    const parsed = JSON.parse(raw);
+    // Merge settings with defaults so new keys don't break existing state
+    parsed.settings = { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) };
+    parsed.cards = parsed.cards || {};
+    parsed.daily = parsed.daily || {};
+    parsed.history = parsed.history || [];
+    return parsed;
+  } catch (e) {
+    console.warn('Could not load state, starting fresh', e);
+    return emptyState();
+  }
+}
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE)); }
+  catch (e) { console.warn('Save failed', e); toast('Warning: could not save progress'); }
+}
+
+function todayKey(now = Date.now()) {
+  const d = new Date(now);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function ensureTodayCounters() {
+  const k = todayKey();
+  if (!STATE.daily[k]) STATE.daily[k] = { introduced: 0, reviewed: 0, again: 0 };
+  // Prune old daily entries beyond 60 days
+  const keys = Object.keys(STATE.daily).sort();
+  while (keys.length > 60) { delete STATE.daily[keys.shift()]; }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Scheduler / session selection                                     */
+/* ------------------------------------------------------------------ */
+function cardState(id) { return STATE.cards[id] || null; }
+function isCardIntroduced(id) { return !!STATE.cards[id]; }
+
+// Count hiragana R cards that have been introduced (reps >= 1).
+function hiraganaIntroducedCount() {
+  let n = 0;
+  for (const c of CARDS) {
+    if (c.kind === 'hira' && c.type === 'R' && isCardIntroduced(c.id)) n++;
+  }
+  return n;
+}
+
+function isIntroductionEligible(card) {
+  if (isCardIntroduced(card.id)) return true;
+  if (card.type === 'P') {
+    // Production unlocks only if the same kana's R has reached stability >= threshold
+    const kanaId = card.kanaId;
+    const rCard = STATE.cards[`${kanaId}:R`];
+    if (!rCard) return false;
+    if (rCard.stability < STATE.settings.productionUnlockStability) return false;
+  }
+  if (card.kind === 'kata') {
+    // Katakana gated behind enough hiragana coverage
+    if (hiraganaIntroducedCount() < STATE.settings.hiraBeforeKataCount) return false;
+  }
+  return true;
+}
+
+// Get due cards (state present, due <= now).
+function dueCards(now) {
+  const due = [];
+  for (const c of CARDS) {
+    const s = STATE.cards[c.id];
+    if (s && s.due <= now) due.push({ ...c, state: s });
+  }
+  due.sort((a, b) => a.state.due - b.state.due);
+  return due;
+}
+
+// Build next new-card queue respecting intro order and gates.
+function newCardsQueue(limit) {
+  const candidates = CARDS
+    .filter(c => !isCardIntroduced(c.id))
+    .sort((a, b) => a.orderIdx - b.orderIdx); // R before P naturally; gojūon order within each
+  const out = [];
+  for (const c of candidates) {
+    if (!isIntroductionEligible(c)) continue;
+    out.push(c);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+// How many cards are due counting only due in the future window we care about (now).
+function countDue(now) {
+  let n = 0;
+  for (const id in STATE.cards) {
+    if (STATE.cards[id].due <= now) n++;
+  }
+  return n;
+}
+
+function retentionPct() {
+  // Compute on last 200 reviews where card was not "new"
+  const h = STATE.history;
+  const window = h.slice(-200).filter(e => !e.wasNew);
+  if (window.length === 0) return null;
+  const correct = window.filter(e => e.grade >= 2).length;
+  return Math.round(100 * correct / window.length);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Session / UI                                                      */
+/* ------------------------------------------------------------------ */
+const $ = (sel) => document.querySelector(sel);
+const cardEl     = $('#card');
+const promptEl   = $('#card-prompt');
+const answerEl   = $('#card-answer');
+const hintEl     = $('#card-hint');
+const gradeRow   = $('#grade-row');
+const kindTagEl  = $('#card-kind');
+const typeTagEl  = $('#card-type');
+const doneStateEl = $('#done-state');
+const studyArea = $('.card-area');
+
+let currentCard = null;  // {id, kanaId, type, kind, ...}
+let flipped = false;
+
+function updateStatsBar() {
+  const now = Date.now();
+  ensureTodayCounters();
+  $('#stat-due').textContent = countDue(now);
+  $('#stat-new').textContent = STATE.daily[todayKey()].introduced;
+  const ret = retentionPct();
+  $('#stat-ret').textContent = ret == null ? '—' : `${ret}%`;
+}
+
+function pickNextCard() {
+  const now = Date.now();
+  const due = dueCards(now);
+  if (due.length > 0) return due[0];
+  // Fill with a new card if budget remains
+  const today = STATE.daily[todayKey()];
+  const budget = Math.max(0, STATE.settings.newPerDay - (today ? today.introduced : 0));
+  if (budget > 0) {
+    const q = newCardsQueue(1);
+    if (q.length > 0) return q[0];
+  }
+  return null;
+}
+
+function renderCard() {
+  updateStatsBar();
+  currentCard = pickNextCard();
+  flipped = false;
+  if (!currentCard) {
+    studyArea.style.display = 'none';
+    doneStateEl.style.display = 'block';
+    // Is there any new card eligible at all?
+    const q = newCardsQueue(1);
+    if (q.length === 0) {
+      $('#done-title').textContent = 'All caught up';
+      $('#done-msg').textContent = 'No cards due right now, and no new cards are eligible yet. Come back later.';
+      $('#btn-introduce').style.display = 'none';
+    } else {
+      $('#done-title').textContent = 'Done for today';
+      $('#done-msg').textContent = `You've hit your new-card cap (${STATE.settings.newPerDay}/day). You can raise it in Settings, or tap below to introduce one more.`;
+      $('#btn-introduce').style.display = 'inline-block';
+    }
+    return;
+  }
+  studyArea.style.display = '';
+  doneStateEl.style.display = 'none';
+
+  const kana = KANA.find(k => k.id === currentCard.kanaId);
+  const isRec = currentCard.type === 'R';
+  cardEl.classList.remove('hira','kata');
+  cardEl.classList.add(currentCard.kind);
+  kindTagEl.textContent = currentCard.kind === 'hira' ? 'HIRAGANA' : 'KATAKANA';
+  typeTagEl.textContent = isRec ? 'recognize' : 'produce';
+
+  if (isRec) {
+    promptEl.className = 'prompt kana';
+    promptEl.textContent = kana.char;
+    answerEl.className = 'answer romaji';
+    answerEl.textContent = '';
+  } else {
+    promptEl.className = 'prompt romaji';
+    promptEl.textContent = kana.romaji;
+    answerEl.className = 'answer kana';
+    answerEl.textContent = '';
+  }
+  hintEl.textContent = 'Tap to reveal';
+  gradeRow.classList.add('hidden');
+}
+
+function flipCard() {
+  if (!currentCard) return;
+  flipped = true;
+  const kana = KANA.find(k => k.id === currentCard.kanaId);
+  const isRec = currentCard.type === 'R';
+  answerEl.textContent = isRec ? kana.romaji : kana.char;
+  hintEl.textContent = 'How well did you recall it?';
+  gradeRow.classList.remove('hidden');
+  if (STATE.settings.showIntervals) {
+    const now = Date.now();
+    const current = STATE.cards[currentCard.id] || {};
+    for (let g = 1; g <= 4; g++) {
+      $(`#ivl-${g}`).textContent = previewInterval(current, g, now);
+    }
+  } else {
+    for (let g = 1; g <= 4; g++) $(`#ivl-${g}`).textContent = '';
+  }
+}
+
+function grade(G) {
+  if (!currentCard || !flipped) return;
+  const now = Date.now();
+  const prev = STATE.cards[currentCard.id] || {};
+  const wasNew = !prev.lastReview;
+  const updated = scheduleReview(prev, G, now);
+  STATE.cards[currentCard.id] = {
+    stability: updated.stability,
+    difficulty: updated.difficulty,
+    due: updated.due,
+    lastReview: updated.lastReview,
+    reps: updated.reps,
+    lapses: updated.lapses,
+    state: updated.state,
+  };
+  // Daily counters
+  ensureTodayCounters();
+  const dayk = todayKey();
+  if (wasNew) STATE.daily[dayk].introduced++;
+  STATE.daily[dayk].reviewed++;
+  if (G === 1) STATE.daily[dayk].again++;
+  // History (bounded)
+  STATE.history.push({ cardId: currentCard.id, grade: G, t: now, wasNew });
+  if (STATE.history.length > 500) STATE.history.splice(0, STATE.history.length - 500);
+  saveState();
+  renderCard();
+}
+
+// Event wiring
+cardEl.addEventListener('click', () => {
+  if (!currentCard) return;
+  if (!flipped) flipCard();
+});
+cardEl.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!flipped) flipCard(); } });
+document.addEventListener('keydown', (e) => {
+  // Keyboard shortcuts: space to flip, 1-4 to grade
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (!currentCard) return;
+  if (!flipped && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); flipCard(); return; }
+  if (flipped && ['1','2','3','4'].includes(e.key)) { e.preventDefault(); grade(parseInt(e.key,10)); }
+});
+gradeRow.querySelectorAll('button').forEach(btn => {
+  btn.addEventListener('click', () => grade(parseInt(btn.dataset.grade, 10)));
+});
+$('#btn-introduce').addEventListener('click', () => {
+  // Temporarily bypass the daily cap: introduce one more card
+  const q = newCardsQueue(1);
+  if (q.length === 0) { toast('No new card eligible to introduce yet.'); return; }
+  // We achieve this by forcing renderCard to reconsider: simplest path is to increment cap by 1 locally for the next pick.
+  // But cleaner: directly render the first eligible card.
+  currentCard = q[0];
+  flipped = false;
+  studyArea.style.display = '';
+  doneStateEl.style.display = 'none';
+  const kana = KANA.find(k => k.id === currentCard.kanaId);
+  const isRec = currentCard.type === 'R';
+  cardEl.classList.remove('hira','kata');
+  cardEl.classList.add(currentCard.kind);
+  kindTagEl.textContent = currentCard.kind === 'hira' ? 'HIRAGANA' : 'KATAKANA';
+  typeTagEl.textContent = isRec ? 'recognize' : 'produce';
+  promptEl.className = isRec ? 'prompt kana' : 'prompt romaji';
+  promptEl.textContent = isRec ? kana.char : kana.romaji;
+  answerEl.className = isRec ? 'answer romaji' : 'answer kana';
+  answerEl.textContent = '';
+  hintEl.textContent = 'Tap to reveal';
+  gradeRow.classList.add('hidden');
+});
+
+/* Settings UI */
+const screens = { study: $('#screen-study'), settings: $('#screen-settings') };
+function showScreen(name) {
+  for (const k in screens) screens[k].classList.toggle('active', k === name);
+  if (name === 'study') renderCard();
+  if (name === 'settings') renderSettings();
+}
+$('#btn-settings').addEventListener('click', () => showScreen('settings'));
+$('#btn-back').addEventListener('click', () => showScreen('study'));
+
+function renderSettings() {
+  $('#setting-newcap').value = STATE.settings.newPerDay;
+  $('#setting-showivl').checked = !!STATE.settings.showIntervals;
+  // Progress summary
+  let hiraR = 0, hiraP = 0, kataR = 0, kataP = 0;
+  let hiraMature = 0, kataMature = 0; // stability >= 21d
+  for (const c of CARDS) {
+    const s = STATE.cards[c.id]; if (!s) continue;
+    const bucketKey = c.kind + (c.type === 'R' ? 'R' : 'P');
+    if (bucketKey === 'hiraR') hiraR++;
+    if (bucketKey === 'hiraP') hiraP++;
+    if (bucketKey === 'kataR') kataR++;
+    if (bucketKey === 'kataP') kataP++;
+    if (c.kind === 'hira' && s.stability >= 21) hiraMature++;
+    if (c.kind === 'kata' && s.stability >= 21) kataMature++;
+  }
+  $('#progress-summary').innerHTML =
+    `Hiragana — recognition <b>${hiraR}/46</b>, production <b>${hiraP}/46</b>, mature (S≥21d) <b>${hiraMature}</b><br>` +
+    `Katakana — recognition <b>${kataR}/46</b>, production <b>${kataP}/46</b>, mature (S≥21d) <b>${kataMature}</b>`;
+}
+
+$('#setting-newcap').addEventListener('change', (e) => {
+  const v = Math.max(0, Math.min(50, parseInt(e.target.value, 10) || 0));
+  STATE.settings.newPerDay = v; e.target.value = v; saveState(); updateStatsBar();
+});
+$('#setting-showivl').addEventListener('change', (e) => {
+  STATE.settings.showIntervals = !!e.target.checked; saveState();
+});
+
+$('#btn-export').addEventListener('click', () => {
+  const json = JSON.stringify(STATE, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `kana-progress-${todayKey()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+  // Also populate the textarea as a fallback
+  const ta = $('#export-area'); ta.value = json; ta.style.display = 'block';
+  toast('Exported');
+});
+$('#btn-copy').addEventListener('click', async () => {
+  const json = JSON.stringify(STATE);
+  try { await navigator.clipboard.writeText(json); toast('Copied to clipboard'); }
+  catch (e) {
+    const ta = $('#export-area'); ta.value = json; ta.style.display = 'block'; ta.select(); toast('Select-all + copy from the box');
+  }
+});
+$('#import-file').addEventListener('change', async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    if (!parsed || typeof parsed !== 'object' || !parsed.cards) throw new Error('Invalid backup file');
+    STATE = { ...emptyState(), ...parsed, settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) } };
+    saveState(); renderSettings(); updateStatsBar(); toast('Imported');
+  } catch (err) {
+    toast('Import failed: ' + err.message);
+  }
+  e.target.value = '';
+});
+$('#btn-reset').addEventListener('click', () => {
+  if (!confirm('Wipe all progress? This cannot be undone.')) return;
+  STATE = emptyState(); saveState(); renderSettings(); updateStatsBar(); toast('Progress reset'); showScreen('study');
+});
+
+/* Toast */
+let toastT;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+/* ------------------------------------------------------------------ */
+/*  PWA: manifest + service worker, both inlined                      */
+/* ------------------------------------------------------------------ */
+(function installManifest() {
+  const icon = "data:image/svg+xml;utf8," + encodeURIComponent(
+    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='96' fill='%23ffffff'/><text x='50%' y='58%' text-anchor='middle' font-size='320' font-family='system-ui' fill='%23222'>あ</text></svg>"
+  );
+  const manifest = {
+    name: 'Kana Flashcards',
+    short_name: 'Kana',
+    start_url: './',
+    scope: './',
+    display: 'standalone',
+    background_color: '#f7f7f8',
+    theme_color: '#f7f7f8',
+    icons: [
+      { src: icon, sizes: '192x192', type: 'image/svg+xml', purpose: 'any' },
+      { src: icon, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' },
+    ],
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+  document.getElementById('manifest-link').href = URL.createObjectURL(blob);
+})();
+
+// Service worker: inline via Blob URL so the single file still gives offline caching.
+// Works well on Chrome/Edge/Firefox; may not register on iOS Safari, but the app is
+// fully self-contained so opening the saved file still works offline.
+(function registerSW() {
+  if (!('serviceWorker' in navigator)) return;
+  const pageUrl = location.href;
+  const sw = `
+    const PAGE = ${JSON.stringify(pageUrl)};
+    const CACHE = 'kana-flashcards-v1';
+    self.addEventListener('install', (e) => {
+      e.waitUntil(caches.open(CACHE).then((c) => c.add(PAGE).catch(()=>{})));
+      self.skipWaiting();
+    });
+    self.addEventListener('activate', (e) => {
+      e.waitUntil((async () => {
+        const keys = await caches.keys();
+        await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
+        await self.clients.claim();
+      })());
+    });
+    self.addEventListener('fetch', (e) => {
+      const req = e.request;
+      if (req.method !== 'GET') return;
+      e.respondWith((async () => {
+        try {
+          const resp = await fetch(req);
+          if (resp && resp.ok) {
+            const clone = resp.clone();
+            caches.open(CACHE).then(c => c.put(req, clone)).catch(()=>{});
+          }
+          return resp;
+        } catch (err) {
+          const cached = await caches.match(req);
+          if (cached) return cached;
+          const fallback = await caches.match(PAGE);
+          if (fallback) return fallback;
+          throw err;
+        }
+      })());
+    });
+  `;
+  try {
+    const blob = new Blob([sw], { type: 'text/javascript' });
+    const url = URL.createObjectURL(blob);
+    navigator.serviceWorker.register(url, { scope: './' }).catch(() => { /* ignore */ });
+  } catch (e) { /* ignore */ }
+})();
+
+/* ------------------------------------------------------------------ */
+/*  Boot                                                              */
+/* ------------------------------------------------------------------ */
+ensureTodayCounters();
+saveState();
+renderCard();
+
+// Expose test hooks (used only in automated tests — harmless at runtime)
+window.__kana = {
+  STATE, CARDS, KANA, scheduleReview, previewInterval, dueCards, newCardsQueue,
+  pickNextCard, grade, flipCard, renderCard,
+  FSRS_W, initStability, initDifficulty, nextIntervalDays,
+  retrievability, R_TARGET, DAY_MS,
+};
+</script>
+</body>
+</html>
